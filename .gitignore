@@ -1,0 +1,12 @@
+# HydroGNN-Net .gitignore
+__pycache__/
+*.py[cod]
+*$py.class
+node_modules/
+.next/
+.venv/
+venv/
+.cache/
+.pytest_cache/
+*.log
+.DS_Store
