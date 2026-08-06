@@ -1,0 +1,29 @@
+{
+  "node_features": [
+    "temperature_c",
+    "humidity_pct",
+    "wind_speed_ms",
+    "pressure_pa",
+    "evaporation_mm",
+    "soil_moisture",
+    "elevation_m"
+  ],
+  "edge_features": [
+    "distance_km",
+    "slope",
+    "river_order"
+  ],
+  "target_variable": "River Water Level (level_m)",
+  "target_units": "meters",
+  "normalization": "StandardScaler (fitted on train split only)",
+  "elevations_m": {
+    "BILIGUNDLU": 240.0,
+    "METTUR_DAM": 230.0,
+    "ERODE": 165.0,
+    "KODUMUDI": 140.0,
+    "KARUR": 125.0,
+    "MUSIRI": 95.0,
+    "TRICHY_UPPER": 75.0,
+    "GRAND_ANICUT": 65.0
+  }
+}

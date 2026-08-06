@@ -1,0 +1,9 @@
+{
+  "provider": "Open-Meteo Flood API",
+  "endpoint": "https://flood-api.open-meteo.com/v1/flood",
+  "sample_response": {
+    "station": "METTUR",
+    "discharge_cumecs": 0.12,
+    "units": "m3/s"
+  }
+}

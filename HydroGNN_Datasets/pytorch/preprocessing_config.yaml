@@ -1,0 +1,15 @@
+forecast_horizons_hours:
+- 6
+- 12
+- 24
+history_window_hours: 24
+missing_value_strategy: Time Interpolation (limit=6h) + Train Scaler Normalization
+model_architecture: GRU + GATv2 + GraphSAGE Spatio-Temporal Flood Router
+project: HydroGNN-Net
+sampling_frequency: 1-Hour Uniform Grid
+split_ratios:
+  test: 0.15
+  train: 0.7
+  val: 0.15
+torch_geometric_version: !!python/object/new:torch.torch_version.TorchVersion
+- 2.10.0+cpu

@@ -1,0 +1,5 @@
+{
+  "provider": "OpenWeather API",
+  "endpoint": "https://api.openweathermap.org/data/2.5/weather",
+  "sample_response": {}
+}

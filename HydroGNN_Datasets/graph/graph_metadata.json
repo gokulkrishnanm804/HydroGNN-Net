@@ -1,0 +1,29 @@
+{
+  "num_nodes": 8,
+  "num_edges": 7,
+  "stations": [
+    "BILIGUNDLU",
+    "METTUR_DAM",
+    "ERODE",
+    "KODUMUDI",
+    "KARUR",
+    "MUSIRI",
+    "TRICHY_UPPER",
+    "GRAND_ANICUT"
+  ],
+  "feature_dim": 7,
+  "edge_feature_dim": 3,
+  "history_window_length": 24,
+  "prediction_horizons_hours": [
+    6,
+    12,
+    24
+  ],
+  "train_samples": 9283,
+  "val_samples": 1995,
+  "test_samples": 1971,
+  "total_samples": 13249,
+  "common_timeline_start": "2019-06-26 00:00:00",
+  "common_timeline_end": "2020-12-31 00:00:00",
+  "total_timesteps_hours": 13297
+}
