@@ -1,0 +1,57 @@
+{
+  "method": "robust",
+  "stats": {
+    "rainfall_1h": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "rainfall_3h": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "rainfall_6h": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "rainfall_12h": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "rainfall_24h": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "antecedent_rainfall_index": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "temperature_c": {
+      "center": 27.937896728515625,
+      "scale": 5.71142578125
+    },
+    "soil_moisture": {
+      "center": 0.18971627205610275,
+      "scale": 0.15728631988167763
+    },
+    "wind_speed_ms": {
+      "center": 2.3227696418762207,
+      "scale": 2.0251154601573944
+    },
+    "reservoir_release_norm": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "reservoir_storage_norm": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "upstream_contribution": {
+      "center": 0.0,
+      "scale": 1.0
+    },
+    "water_level_m": {
+      "center": 0.2874999940395355,
+      "scale": 3.923499956727028
+    }
+  }
+}

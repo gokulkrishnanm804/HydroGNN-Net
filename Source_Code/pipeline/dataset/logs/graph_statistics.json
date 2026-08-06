@@ -1,0 +1,44 @@
+{
+  "n_nodes": 8,
+  "n_edges": 5,
+  "n_connected_components": 3,
+  "n_isolated_nodes": 1,
+  "isolated_nodes": [
+    "GRAND_ANICUT"
+  ],
+  "elevation_min_m": 78.0,
+  "elevation_max_m": 640.0,
+  "elevation_range_m": 562.0,
+  "edge_index_shape": [
+    2,
+    5
+  ],
+  "edge_attr_shape": [
+    5,
+    4
+  ],
+  "edge_feature_names": [
+    "length_km",
+    "elev_diff_m",
+    "travel_time_h",
+    "strahler_order"
+  ],
+  "node_feature_names": [
+    "node_id",
+    "station_id",
+    "name",
+    "lat",
+    "lon",
+    "elevation_m",
+    "slope_deg",
+    "danger_level_m",
+    "warning_level_m",
+    "basin_area_km2",
+    "is_reservoir",
+    "district",
+    "river"
+  ],
+  "hydrorivers_available": true,
+  "terrain_csv_available": true,
+  "graph_method": "geographic_fallback"
+}

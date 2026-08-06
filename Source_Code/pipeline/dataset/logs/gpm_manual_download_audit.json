@@ -1,0 +1,393 @@
+{
+  "generated_at": "2026-07-15T07:25:01.448808+00:00",
+  "audit_type": "READ_ONLY \u2014 no files modified",
+  "scanned_dirs": [
+    "C:\\Users\\gokul\\Downloads\\GPM_3IMERGHH_07",
+    "C:\\Users\\gokul\\Downloads\\new_project\\pipeline\\dataset\\raw\\gpm"
+  ],
+  "overall": {
+    "hdf5_found_total": 56,
+    "valid_files": 50,
+    "corrupt_files": 6,
+    "zero_byte_files": 0,
+    "unexpected_files": 0,
+    "duplicate_timestamps": 0,
+    "files_expected": 105168,
+    "pct_complete": 0.0475,
+    "total_size_valid_gb": 0.378,
+    "total_size_all_gb": 0.402,
+    "avg_file_size_mb": 7.17,
+    "earliest_ts": "2020-01-01 00:00:00+00:00",
+    "latest_ts": "2020-01-02 15:00:00+00:00",
+    "years_complete": [],
+    "years_partial": [
+      2020
+    ],
+    "years_missing": [
+      2018,
+      2019,
+      2021,
+      2022,
+      2023
+    ],
+    "missing_slots_total": 105118,
+    "extra_slots_outside_range": 0,
+    "gap_count": 5
+  },
+  "storage": {
+    "n_files_parseable": 56,
+    "n_directories": 3,
+    "size_on_disk_gb": 0.402,
+    "avg_file_size_mb": 7.17,
+    "largest_file_mb": 7.73,
+    "smallest_file_mb": 0.93,
+    "free_disk_gb": 768.8,
+    "total_disk_gb": 938.9,
+    "est_remaining_dl_gb": 753.7,
+    "est_final_dataset_gb": 754.1
+  },
+  "year_breakdown": {
+    "2018": {
+      "files_present": 0,
+      "files_expected": 17520,
+      "pct_complete": 0.0,
+      "size_mb": 0.0,
+      "first_ts": null,
+      "last_ts": null,
+      "missing_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "missing_days_count": 365,
+      "missing_days_sample": [
+        "2018-01-01",
+        "2018-01-02",
+        "2018-01-03",
+        "2018-01-04",
+        "2018-01-05",
+        "2018-01-06",
+        "2018-01-07",
+        "2018-01-08",
+        "2018-01-09",
+        "2018-01-10"
+      ],
+      "missing_slots": 17520
+    },
+    "2019": {
+      "files_present": 0,
+      "files_expected": 17520,
+      "pct_complete": 0.0,
+      "size_mb": 0.0,
+      "first_ts": null,
+      "last_ts": null,
+      "missing_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "missing_days_count": 365,
+      "missing_days_sample": [
+        "2019-01-01",
+        "2019-01-02",
+        "2019-01-03",
+        "2019-01-04",
+        "2019-01-05",
+        "2019-01-06",
+        "2019-01-07",
+        "2019-01-08",
+        "2019-01-09",
+        "2019-01-10"
+      ],
+      "missing_slots": 17520
+    },
+    "2020": {
+      "files_present": 50,
+      "files_expected": 17568,
+      "pct_complete": 0.28,
+      "size_mb": 378.4,
+      "first_ts": "2020-01-01 00:00:00+00:00",
+      "last_ts": "2020-01-02 15:00:00+00:00",
+      "missing_months": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "missing_days_count": 364,
+      "missing_days_sample": [
+        "2020-01-03",
+        "2020-01-04",
+        "2020-01-05",
+        "2020-01-06",
+        "2020-01-07",
+        "2020-01-08",
+        "2020-01-09",
+        "2020-01-10",
+        "2020-01-11",
+        "2020-01-12"
+      ],
+      "missing_slots": 17518
+    },
+    "2021": {
+      "files_present": 0,
+      "files_expected": 17520,
+      "pct_complete": 0.0,
+      "size_mb": 0.0,
+      "first_ts": null,
+      "last_ts": null,
+      "missing_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "missing_days_count": 365,
+      "missing_days_sample": [
+        "2021-01-01",
+        "2021-01-02",
+        "2021-01-03",
+        "2021-01-04",
+        "2021-01-05",
+        "2021-01-06",
+        "2021-01-07",
+        "2021-01-08",
+        "2021-01-09",
+        "2021-01-10"
+      ],
+      "missing_slots": 17520
+    },
+    "2022": {
+      "files_present": 0,
+      "files_expected": 17520,
+      "pct_complete": 0.0,
+      "size_mb": 0.0,
+      "first_ts": null,
+      "last_ts": null,
+      "missing_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "missing_days_count": 365,
+      "missing_days_sample": [
+        "2022-01-01",
+        "2022-01-02",
+        "2022-01-03",
+        "2022-01-04",
+        "2022-01-05",
+        "2022-01-06",
+        "2022-01-07",
+        "2022-01-08",
+        "2022-01-09",
+        "2022-01-10"
+      ],
+      "missing_slots": 17520
+    },
+    "2023": {
+      "files_present": 0,
+      "files_expected": 17520,
+      "pct_complete": 0.0,
+      "size_mb": 0.0,
+      "first_ts": null,
+      "last_ts": null,
+      "missing_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "missing_days_count": 365,
+      "missing_days_sample": [
+        "2023-01-01",
+        "2023-01-02",
+        "2023-01-03",
+        "2023-01-04",
+        "2023-01-05",
+        "2023-01-06",
+        "2023-01-07",
+        "2023-01-08",
+        "2023-01-09",
+        "2023-01-10"
+      ],
+      "missing_slots": 17520
+    }
+  },
+  "month_breakdown": {
+    "2020-01": {
+      "files_present": 50,
+      "files_expected": 1488,
+      "pct_complete": 3.36,
+      "missing_days": [
+        "2020-01-03",
+        "2020-01-04",
+        "2020-01-05",
+        "2020-01-06",
+        "2020-01-07",
+        "2020-01-08",
+        "2020-01-09",
+        "2020-01-10",
+        "2020-01-11",
+        "2020-01-12",
+        "2020-01-13",
+        "2020-01-14",
+        "2020-01-15",
+        "2020-01-16",
+        "2020-01-17",
+        "2020-01-18",
+        "2020-01-19",
+        "2020-01-20",
+        "2020-01-21",
+        "2020-01-22",
+        "2020-01-23",
+        "2020-01-24",
+        "2020-01-25",
+        "2020-01-26",
+        "2020-01-27",
+        "2020-01-28",
+        "2020-01-29",
+        "2020-01-30",
+        "2020-01-31"
+      ],
+      "missing_slots": 1438,
+      "first_ts": "2020-01-01 00:00:00+00:00",
+      "last_ts": "2020-01-02 15:00:00+00:00"
+    }
+  },
+  "corrupt_files": [
+    {
+      "file": "C:\\Users\\gokul\\Downloads\\GPM_3IMERGHH_07\\3B-HHR.MS.MRG.3IMERG.20200101-S173000-E175959.1050.V07B.HDF5",
+      "size_bytes": 7290880,
+      "error": "TRUNCATED (download incomplete): Unable to synchronously open file (truncated file: eof = 7290880, sblock->base_addr = 0, stored_eof = 7576445)",
+      "timestamp": "2020-01-01 17:30:00+00:00"
+    },
+    {
+      "file": "C:\\Users\\gokul\\Downloads\\GPM_3IMERGHH_07\\3B-HHR.MS.MRG.3IMERG.20200101-S183000-E185959.1110.V07B.HDF5",
+      "size_bytes": 6127616,
+      "error": "TRUNCATED (download incomplete): Unable to synchronously open file (truncated file: eof = 6127616, sblock->base_addr = 0, stored_eof = 7532072)",
+      "timestamp": "2020-01-01 18:30:00+00:00"
+    },
+    {
+      "file": "C:\\Users\\gokul\\Downloads\\GPM_3IMERGHH_07\\3B-HHR.MS.MRG.3IMERG.20200101-S190000-E192959.1140.V07B.HDF5",
+      "size_bytes": 5406720,
+      "error": "TRUNCATED (download incomplete): Unable to synchronously open file (truncated file: eof = 5406720, sblock->base_addr = 0, stored_eof = 7554629)",
+      "timestamp": "2020-01-01 19:00:00+00:00"
+    },
+    {
+      "file": "C:\\Users\\gokul\\Downloads\\GPM_3IMERGHH_07\\3B-HHR.MS.MRG.3IMERG.20200101-S193000-E195959.1170.V07B.HDF5",
+      "size_bytes": 925696,
+      "error": "TRUNCATED (download incomplete): Unable to synchronously open file (truncated file: eof = 925696, sblock->base_addr = 0, stored_eof = 7623126)",
+      "timestamp": "2020-01-01 19:30:00+00:00"
+    },
+    {
+      "file": "C:\\Users\\gokul\\Downloads\\GPM_3IMERGHH_07\\3B-HHR.MS.MRG.3IMERG.20200101-S200000-E202959.1200.V07B.HDF5",
+      "size_bytes": 1048576,
+      "error": "TRUNCATED (download incomplete): Unable to synchronously open file (truncated file: eof = 1048576, sblock->base_addr = 0, stored_eof = 7555333)",
+      "timestamp": "2020-01-01 20:00:00+00:00"
+    },
+    {
+      "file": "C:\\Users\\gokul\\Downloads\\GPM_3IMERGHH_07\\3B-HHR.MS.MRG.3IMERG.20200102-S153000-E155959.0930.V07B.HDF5",
+      "size_bytes": 2375680,
+      "error": "TRUNCATED (download incomplete): Unable to synchronously open file (truncated file: eof = 2375680, sblock->base_addr = 0, stored_eof = 7727872)",
+      "timestamp": "2020-01-02 15:30:00+00:00"
+    }
+  ],
+  "zero_byte_files": [],
+  "unexpected_files": [],
+  "duplicate_timestamps": {},
+  "top_chronological_gaps": [
+    {
+      "start": "2020-01-02 15:30:00+00:00",
+      "end": "2023-12-31 23:30:00+00:00",
+      "slots": 70049
+    },
+    {
+      "start": "2018-01-01 00:00:00+00:00",
+      "end": "2019-12-31 23:30:00+00:00",
+      "slots": 35040
+    },
+    {
+      "start": "2020-01-01 18:30:00+00:00",
+      "end": "2020-01-02 03:00:00+00:00",
+      "slots": 18
+    },
+    {
+      "start": "2020-01-01 10:00:00+00:00",
+      "end": "2020-01-01 14:30:00+00:00",
+      "slots": 10
+    },
+    {
+      "start": "2020-01-01 17:30:00+00:00",
+      "end": "2020-01-01 17:30:00+00:00",
+      "slots": 1
+    }
+  ],
+  "readiness": {
+    "status": "NOT READY",
+    "pct_complete": 0.0475,
+    "files_downloaded": 50,
+    "files_remaining": 105118,
+    "est_remaining_gb": 753.7,
+    "years_fully_done": [],
+    "years_partial": [
+      2020
+    ],
+    "years_not_started": [
+      2018,
+      2019,
+      2021,
+      2022,
+      2023
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HydroGNN-Net Data Validation Report</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          background:#0f172a;color:#e2e8f0;margin:0;padding:24px }
+  h1   { color:#38bdf8;margin-bottom:4px }
+  p.sub { color:#94a3b8;margin-top:0 }
+  table { width:100%;border-collapse:collapse;background:#1e293b;border-radius:8px;overflow:hidden }
+  th   { background:#0f172a;color:#94a3b8;text-align:left;padding:10px 14px;font-size:13px;text-transform:uppercase;letter-spacing:.05em }
+  td   { padding:10px 14px;border-bottom:1px solid #334155;font-size:14px }
+  tr:last-child td { border-bottom:none }
+  tr:hover td { background:#273449 }
+  footer { color:#475569;font-size:12px;margin-top:16px }
+</style>
+</head>
+<body>
+<h1>🌊 HydroGNN-Net Data Validation Report</h1>
+<p class="sub">Cauvery Basin, Tamil Nadu, India — Generated: 2026-07-15 16:39 UTC</p>
+<table>
+<thead>
+  <tr>
+    <th>Source</th><th>Station / Reservoir</th><th>Status</th>
+    <th>Rows</th><th>Missing%</th><th>Notes</th>
+  </tr>
+</thead>
+<tbody>
+<tr><td>GPM</td><td>BILIGUNDLU</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>File not found: gpm_BILIGUNDLU.parquet</td></tr>
+<tr><td>GPM</td><td>METTUR_DAM</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>File not found: gpm_METTUR_DAM.parquet</td></tr>
+<tr><td>GPM</td><td>ERODE</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>File not found: gpm_ERODE.parquet</td></tr>
+<tr><td>GPM</td><td>KODUMUDI</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>File not found: gpm_KODUMUDI.parquet</td></tr>
+<tr><td>GPM</td><td>KARUR</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>File not found: gpm_KARUR.parquet</td></tr>
+<tr><td>GPM</td><td>MUSIRI</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>File not found: gpm_MUSIRI.parquet</td></tr>
+<tr><td>GPM</td><td>TRICHY_UPPER</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>File not found: gpm_TRICHY_UPPER.parquet</td></tr>
+<tr><td>GPM</td><td>GRAND_ANICUT</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>File not found: gpm_GRAND_ANICUT.parquet</td></tr>
+<tr><td>CWC</td><td>BILIGUNDLU</td><td><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">WARNING</span></td><td>25,979</td><td>29.8%</td><td>Level range: 0.0–164.9 m</td></tr>
+<tr><td>CWC</td><td>METTUR_DAM</td><td><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">WARNING</span></td><td>24,011</td><td>66.2%</td><td>Level range: 12.0–36.0 m</td></tr>
+<tr><td>CWC</td><td>ERODE</td><td><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">WARNING</span></td><td>26,609</td><td>29.3%</td><td>Level range: -1.0–963.8 m</td></tr>
+<tr><td>CWC</td><td>KODUMUDI</td><td><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">WARNING</span></td><td>26,609</td><td>29.3%</td><td>Level range: -1.0–179.9 m</td></tr>
+<tr><td>CWC</td><td>KARUR</td><td><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">WARNING</span></td><td>26,609</td><td>29.3%</td><td>Level range: -1.0–179.9 m</td></tr>
+<tr><td>CWC</td><td>MUSIRI</td><td><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">WARNING</span></td><td>22,999</td><td>27.8%</td><td>Level range: -1.0–952.2 m</td></tr>
+<tr><td>CWC</td><td>TRICHY_UPPER</td><td><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">WARNING</span></td><td>26,609</td><td>43.2%</td><td>Level range: -1.0–973.9 m</td></tr>
+<tr><td>CWC</td><td>GRAND_ANICUT</td><td><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">WARNING</span></td><td>26,597</td><td>40.1%</td><td>Level range: -1.0–1018.4 m</td></tr>
+<tr><td>Reservoir</td><td>METTUR</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>No CSV files found in dataset/raw/reservoir/</td></tr>
+<tr><td>Reservoir</td><td>BHAVANISAGAR</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>No CSV files found in dataset/raw/reservoir/</td></tr>
+<tr><td>Reservoir</td><td>AMARAVATHI</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>No CSV files found in dataset/raw/reservoir/</td></tr>
+<tr><td>Reservoir</td><td>UPPER_BHAVANI</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>No CSV files found in dataset/raw/reservoir/</td></tr>
+<tr><td>Reservoir</td><td>PILLUR</td><td><span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">MISSING</span></td><td>0</td><td>100.0%</td><td>No CSV files found in dataset/raw/reservoir/</td></tr>
+
+</tbody>
+</table>
+<footer>HydroGNN-Net IEEE Final Year Project — All data from official CWC/NASA/Copernicus sources</footer>
+</body>
+</html>

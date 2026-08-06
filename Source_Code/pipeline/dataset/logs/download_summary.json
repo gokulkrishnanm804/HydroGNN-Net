@@ -1,0 +1,70 @@
+{
+  "generated_at": "2026-07-14T13:01:45.539769",
+  "basin": "Cauvery",
+  "years": "2018-2023",
+  "sources": {
+    "hydrorivers": {
+      "status": "OK",
+      "file": "pipeline\\dataset\\raw\\hydrorivers\\cauvery_rivers.shp",
+      "size_mb": 0.6,
+      "note": "4518 river segments clipped to Cauvery basin bbox"
+    },
+    "srtm": {
+      "status": "OK",
+      "file": "pipeline\\dataset\\raw\\srtm\\cauvery_dem.tif",
+      "size_mb": 432.1,
+      "tiles_downloaded": 6,
+      "note": "6 CGIAR 5x5-degree tiles mosaiced"
+    },
+    "gpm_imerg": {
+      "status": "MISSING",
+      "file_count": 0,
+      "size_gb": 0,
+      "note": "BLOCKED: NASA Earthdata credentials required. Register at https://urs.earthdata.nasa.gov"
+    },
+    "era5": {
+      "status": "MISSING",
+      "file_count": 0,
+      "size_gb": 0,
+      "note": "BLOCKED: CDS API key required. Register at https://cds.climate.copernicus.eu"
+    },
+    "cwc": {
+      "status": "MISSING",
+      "files_found": 0,
+      "files_expected": 48,
+      "files_missing": 48,
+      "missing_list": [
+        "BILIGUNDLU_2018.csv",
+        "BILIGUNDLU_2019.csv",
+        "BILIGUNDLU_2020.csv",
+        "BILIGUNDLU_2021.csv",
+        "BILIGUNDLU_2022.csv",
+        "BILIGUNDLU_2023.csv",
+        "METTUR_DAM_2018.csv",
+        "METTUR_DAM_2019.csv",
+        "METTUR_DAM_2020.csv",
+        "METTUR_DAM_2021.csv"
+      ],
+      "note": "BLOCKED: Manual export from India-WRIS required. https://indiawris.gov.in/wris/#/"
+    },
+    "reservoir": {
+      "status": "MISSING",
+      "files_found": 0,
+      "files_expected": 30,
+      "files_missing": 30,
+      "note": "BLOCKED: Manual export from India-WRIS Reservoir Monitoring required"
+    },
+    "terrain_attributes": {
+      "status": "OK",
+      "file": "pipeline\\dataset\\processed\\terrain_attributes.csv",
+      "note": "Derived from SRTM DEM \u2014 8 stations, elevation 78-640m"
+    }
+  },
+  "overall": {
+    "sources_ok": 3,
+    "sources_missing": 4,
+    "sources_blocked_pending_credentials": 4,
+    "ready_for_training": false,
+    "blocking_issue": "CWC gauge data and Reservoir data must be manually exported from India-WRIS"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "cleanup_timestamp": "20260716_222658",
+  "actions": [
+    {
+      "action": "KEEP",
+      "file": "C:\\Users\\gokul\\Downloads\\new_project\\pipeline\\dataset\\raw\\cwc\\cauvery_1991_2020.csv",
+      "reason": "Correct Cauvery basin dataset.",
+      "timestamp": "20260716_222658"
+    },
+    {
+      "action": "ARCHIVE_INVALID",
+      "file": "C:\\Users\\gokul\\Downloads\\new_project\\pipeline\\dataset\\raw\\cwc\\cauvery_2021_2025.csv",
+      "reason": "WRONG BASIN: Contains Sabarmati Basin data, not Cauvery. This file (rwl_tel_hr_cwc_013) was mistakenly placed in the Cauvery project.",
+      "timestamp": "20260716_222658",
+      "moved_to": "C:\\Users\\gokul\\Downloads\\new_project\\pipeline\\archive\\invalid\\cauvery_2021_2025.csv"
+    },
+    {
+      "action": "DELETE",
+      "file": "C:\\Users\\gokul\\Downloads\\new_project\\pipeline\\dataset\\raw\\gpm",
+      "reason": "GPM dir was empty (no actual files). Deleted empty shell.",
+      "timestamp": "20260716_222658"
+    },
+    {
+      "action": "ARCHIVE_UNUSED",
+      "file": "C:\\Users\\gokul\\Downloads\\new_project\\pipeline\\dataset\\processed\\slope.tif",
+      "reason": "Duplicate SRTM slope.tif found in processed/ (original exists in raw/srtm/). Moved to archive/unused to free 824 MB of disk space.",
+      "timestamp": "20260716_222658",
+      "moved_to": "C:\\Users\\gokul\\Downloads\\new_project\\pipeline\\archive\\unused\\slope.tif"
+    }
+  ]
+}
