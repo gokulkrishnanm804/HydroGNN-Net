@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 
 PIPELINE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = PIPELINE_DIR.parent.parent
 if str(PIPELINE_DIR) not in sys.path:
     sys.path.insert(0, str(PIPELINE_DIR))
 
@@ -47,11 +48,19 @@ def load_config(config_path: Path) -> dict:
         return yaml.safe_load(fh)
 
 
-def resolve_paths(config: dict, project_root: Path) -> dict:
-    for key in config["paths"]:
+def resolve_paths(config: dict, repo_root: Path) -> dict:
+    for key in config.get("paths", {}):
         p = Path(config["paths"][key])
         if not p.is_absolute():
-            config["paths"][key] = str(project_root / "pipeline" / p)
+            config["paths"][key] = str(repo_root / p)
+    if "imd_rainfall" in config and "path" in config["imd_rainfall"]:
+        p = Path(config["imd_rainfall"]["path"])
+        if not p.is_absolute():
+            config["imd_rainfall"]["path"] = str(repo_root / p)
+    if "reservoir_operations" in config and "path" in config["reservoir_operations"]:
+        p = Path(config["reservoir_operations"]["path"])
+        if not p.is_absolute():
+            config["reservoir_operations"]["path"] = str(repo_root / p)
     return config
 
 
@@ -142,112 +151,235 @@ def generate_validation_report(
 # Processing functions
 # ─────────────────────────────────────────────────────────────────────────────
 
-def process_gpm(config: dict) -> list:
-    """Process GPM IMERG station extracts → rolling accumulations."""
-    from src.features.rolling_rainfall import compute_rolling_rainfall
+def process_imd_rainfall(config: dict) -> list:
+    """Validate and extract IMD gridded daily rainfall (0.25° NetCDF)."""
+    import netCDF4 as nc
 
-    proc_dir = Path(config["paths"]["processed_dir"])
+    raw_dir = Path(config["paths"]["raw_dir"])
+    rainfall_dir = Path(config.get("imd_rainfall", {}).get("path", raw_dir / "rainfall"))
+    start_yr = config.get("years", {}).get("start", 2018)
+    end_yr = config.get("years", {}).get("end", 2023)
+    years_list = list(range(start_yr, end_yr + 1))
+    stations = config["stations"]
     summaries = []
-    windows   = config["features"]["rolling_windows_hours"]
 
-    for sid in [s["id"] for s in config["stations"]]:
-        parquet_in = proc_dir / f"gpm_{sid}.parquet"
-        if not parquet_in.exists():
+    # Pre-check available NetCDF files
+    available_ncs = {}
+    for yr in years_list:
+        p = rainfall_dir / f"RF25_ind{yr}_rfp25.nc"
+        if p.exists():
+            available_ncs[yr] = p
+
+    if not available_ncs:
+        for s in stations:
             summaries.append({
-                "source": "GPM", "station_id": sid, "status": "MISSING",
+                "source": "IMD Rainfall", "station_id": s["id"], "status": "MISSING",
                 "total_rows": 0, "missing_pct": 100,
-                "notes": f"File not found: {parquet_in.name}",
+                "notes": f"No NetCDF files found in {rainfall_dir.name}/",
             })
-            continue
+        return summaries
+
+    for sid_cfg in stations:
+        sid = sid_cfg["id"]
+        lat = sid_cfg["lat"]
+        lon = sid_cfg["lon"]
+        daily_dfs = []
         try:
-            df = pd.read_parquet(parquet_in)
-            df = compute_rolling_rainfall(df, windows_hours=windows)
-            missing_pct = df["precipitation_mm_30min"].isna().mean() * 100
-            out_path = proc_dir / f"gpm_processed_{sid}.parquet"
-            df.to_parquet(out_path, index=False)
-            # Use the last configured window for the 'max accumulation' note
-            max_col = f"rainfall_{windows[-1]}h" if windows else None
-            if max_col and max_col in df.columns:
-                rain_note = f"Max {windows[-1]}h: {df[max_col].max():.1f}mm"
+            for yr, nc_p in available_ncs.items():
+                ds = nc.Dataset(nc_p)
+                lons = ds.variables["LONGITUDE"][:]
+                lats = ds.variables["LATITUDE"][:]
+                times = ds.variables["TIME"][:]
+                base_date = pd.Timestamp("1900-12-31")
+                dates = pd.to_datetime([base_date + pd.Timedelta(days=float(t)) for t in times])
+
+                lat_idx = int(np.abs(lats - lat).argmin())
+                lon_idx = int(np.abs(lons - lon).argmin())
+                rf_vals = ds.variables["RAINFALL"][:, lat_idx, lon_idx]
+                rf_clean = np.where(rf_vals < 0, np.nan, rf_vals)
+                df_yr = pd.DataFrame({"rainfall_mm": rf_clean}, index=dates)
+                daily_dfs.append(df_yr)
+                ds.close()
+
+            if daily_dfs:
+                df_all = pd.concat(daily_dfs).sort_index()
+                missing_pct = df_all["rainfall_mm"].isna().mean() * 100
+                max_r = df_all["rainfall_mm"].max()
+                mean_r = df_all["rainfall_mm"].mean()
+                summaries.append({
+                    "source": "IMD Rainfall", "station_id": sid,
+                    "status": "WARNING" if missing_pct > 10 else "OK",
+                    "total_rows": len(df_all), "missing_pct": missing_pct,
+                    "notes": f"Max daily: {max_r:.1f} mm, Mean: {mean_r:.2f} mm ({len(df_all)} days)",
+                })
             else:
-                rain_note = f"{len(df)} rows saved"
-            summaries.append({
-                "source": "GPM", "station_id": sid,
-                "status": "WARNING" if missing_pct > 10 else "OK",
-                "total_rows": len(df),
-                "missing_pct": missing_pct,
-                "notes": rain_note,
-            })
+                summaries.append({
+                    "source": "IMD Rainfall", "station_id": sid, "status": "MISSING",
+                    "total_rows": 0, "missing_pct": 100, "notes": "No daily records extracted",
+                })
         except Exception as exc:
             summaries.append({
-                "source": "GPM", "station_id": sid, "status": "CRITICAL",
+                "source": "IMD Rainfall", "station_id": sid, "status": "CRITICAL",
                 "total_rows": 0, "missing_pct": 100, "notes": str(exc)[:80],
             })
     return summaries
 
 
 def process_cwc(config: dict) -> list:
-    """Load and validate CWC station data."""
-    from src.downloaders.cwc import CWCDataParser
-
-    raw_dir  = Path(config["paths"]["raw_dir"])
+    """Load and validate CWC station river gauge data."""
     proc_dir = Path(config["paths"]["processed_dir"])
-    parser   = CWCDataParser(raw_dir, config)
-    years    = list(range(config["years"]["start"], config["years"]["end"] + 1))
+    raw_dir  = Path(config["paths"]["raw_dir"])
     station_ids = [s["id"] for s in config["stations"]]
-    data     = parser.load_all_available(station_ids, years)
-    parser.save_processed(data, proc_dir)
-
     summaries = []
+
     for sid in station_ids:
-        if sid in data:
-            df          = data[sid]
-            missing_pct = df["level_m"].isna().mean() * 100
-            summaries.append({
-                "source": "CWC", "station_id": sid,
-                "status": "WARNING" if missing_pct > 10 else "OK",
-                "total_rows": len(df),
-                "missing_pct": missing_pct,
-                "notes": f"Level range: {df['level_m'].min():.1f}–{df['level_m'].max():.1f} m",
-            })
+        # Check in processed/cwc/ or processed/
+        p1 = proc_dir / "cwc" / f"cwc_{sid}.parquet"
+        p2 = proc_dir / f"cwc_{sid}.parquet"
+        target_p = p1 if p1.exists() else (p2 if p2.exists() else None)
+
+        if target_p:
+            try:
+                df = pd.read_parquet(target_p)
+                col = "level_m" if "level_m" in df.columns else df.columns[0]
+                missing_pct = df[col].isna().mean() * 100
+                min_v, max_v = df[col].min(), df[col].max()
+                summaries.append({
+                    "source": "CWC", "station_id": sid,
+                    "status": "WARNING" if missing_pct > 10 else "OK",
+                    "total_rows": len(df),
+                    "missing_pct": missing_pct,
+                    "notes": f"Level range: {min_v:.1f}–{max_v:.1f} m",
+                })
+            except Exception as exc:
+                summaries.append({
+                    "source": "CWC", "station_id": sid, "status": "CRITICAL",
+                    "total_rows": 0, "missing_pct": 100, "notes": str(exc)[:80],
+                })
         else:
-            summaries.append({
-                "source": "CWC", "station_id": sid, "status": "MISSING",
-                "total_rows": 0, "missing_pct": 100,
-                "notes": "No CSV files found in dataset/raw/cwc/",
-            })
+            # Fallback to parser if raw CSV files exist
+            try:
+                from src.downloaders.cwc import CWCDataParser
+                parser = CWCDataParser(raw_dir, config)
+                years = list(range(config["years"]["start"], config["years"]["end"] + 1))
+                data = parser.load_all_available([sid], years)
+                if sid in data:
+                    df = data[sid]
+                    missing_pct = df["level_m"].isna().mean() * 100
+                    summaries.append({
+                        "source": "CWC", "station_id": sid,
+                        "status": "WARNING" if missing_pct > 10 else "OK",
+                        "total_rows": len(df),
+                        "missing_pct": missing_pct,
+                        "notes": f"Level range: {df['level_m'].min():.1f}–{df['level_m'].max():.1f} m",
+                    })
+                else:
+                    summaries.append({
+                        "source": "CWC", "station_id": sid, "status": "MISSING",
+                        "total_rows": 0, "missing_pct": 100,
+                        "notes": "No CSV files found in dataset/raw/cwc/",
+                    })
+            except Exception as exc:
+                summaries.append({
+                    "source": "CWC", "station_id": sid, "status": "CRITICAL",
+                    "total_rows": 0, "missing_pct": 100, "notes": str(exc)[:80],
+                })
     return summaries
 
 
 def process_reservoir(config: dict) -> list:
-    """Load and validate reservoir data."""
-    from src.downloaders.reservoir import ReservoirDataParser
-
+    """Load and validate multi-year reservoir telemetry data."""
     raw_dir  = Path(config["paths"]["raw_dir"])
-    proc_dir = Path(config["paths"]["processed_dir"])
-    parser   = ReservoirDataParser(raw_dir, config)
-    years    = list(range(config["years"]["start"], config["years"]["end"] + 1))
-    res_ids  = [r["id"] for r in config["reservoirs"]]
-    data     = parser.load_all_available(res_ids, years)
-    parser.save_processed(data, proc_dir)
-
+    res_csv = Path(config.get("reservoir_operations", {}).get("path", raw_dir / "reservoir" / "reservoir_2018_2023.csv"))
+    start_yr = config.get("years", {}).get("start", 2018)
+    end_yr = config.get("years", {}).get("end", 2023)
     summaries = []
-    for rid in res_ids:
-        if rid in data:
-            df          = data[rid]
-            missing_pct = df["storage_pct"].isna().mean() * 100
-            summaries.append({
-                "source": "Reservoir", "station_id": rid,
-                "status": "WARNING" if missing_pct > 10 else "OK",
-                "total_rows": len(df),
-                "missing_pct": missing_pct,
-                "notes": f"Storage: {df['storage_pct'].min():.0f}–{df['storage_pct'].max():.0f}%",
-            })
-        else:
+
+    res_list = config.get("reservoir_operations", {}).get("reservoirs", config.get("reservoirs", []))
+
+    if res_csv.exists():
+        try:
+            df_res = pd.read_csv(res_csv)
+            df_res["clean_name"] = df_res["reservoir_name"].astype(str).str.strip().str.upper()
+            df_res["date"] = pd.to_datetime(df_res["updated_date"], errors="coerce")
+
+            for r_cfg in res_list:
+                rid = r_cfg.get("name", r_cfg.get("id"))
+                cwc_n = r_cfg.get("cwc_name", rid).replace("*", "").strip().upper()
+                sub = df_res[df_res["clean_name"].str.contains(cwc_n, na=False)].copy()
+
+                if not sub.empty:
+                    sub = sub.dropna(subset=["date"]).sort_values("date")
+                    sub_yrs = sub[(sub["date"].dt.year >= start_yr) & (sub["date"].dt.year <= end_yr)]
+                    rows = len(sub_yrs) if not sub_yrs.empty else len(sub)
+                    min_d = (sub_yrs["date"].min() if not sub_yrs.empty else sub["date"].min()).date()
+                    max_d = (sub_yrs["date"].max() if not sub_yrs.empty else sub["date"].max()).date()
+                    summaries.append({
+                        "source": "Reservoir", "station_id": rid,
+                        "status": "OK",
+                        "total_rows": rows, "missing_pct": 0.0,
+                        "notes": f"{rows:,} records ({min_d} to {max_d})",
+                    })
+                else:
+                    summaries.append({
+                        "source": "Reservoir", "station_id": rid, "status": "MISSING",
+                        "total_rows": 0, "missing_pct": 100,
+                        "notes": f"Name '{cwc_n}' not found in reservoir CSV",
+                    })
+        except Exception as exc:
+            for r_cfg in res_list:
+                rid = r_cfg.get("name", r_cfg.get("id"))
+                summaries.append({
+                    "source": "Reservoir", "station_id": rid, "status": "CRITICAL",
+                    "total_rows": 0, "missing_pct": 100, "notes": str(exc)[:80],
+                })
+    else:
+        for r_cfg in res_list:
+            rid = r_cfg.get("name", r_cfg.get("id"))
             summaries.append({
                 "source": "Reservoir", "station_id": rid, "status": "MISSING",
                 "total_rows": 0, "missing_pct": 100,
-                "notes": "No CSV files found in dataset/raw/reservoir/",
+                "notes": f"File not found: {res_csv.name}",
+            })
+    return summaries
+
+
+def process_era5(config: dict) -> list:
+    """Validate existing processed ERA5 meteorological parquets."""
+    proc_dir = Path(config["paths"]["processed_dir"])
+    stations = config["stations"]
+    summaries = []
+
+    for s in stations:
+        sid = s["id"]
+        p1 = proc_dir / "era5" / f"era5_{sid}.parquet"
+        p2 = proc_dir / f"era5_{sid}.parquet"
+        target_p = p1 if p1.exists() else (p2 if p2.exists() else None)
+
+        if target_p:
+            try:
+                df = pd.read_parquet(target_p)
+                t_col = "temperature_c" if "temperature_c" in df.columns else df.columns[0]
+                missing_pct = df[t_col].isna().mean() * 100
+                t_min = df[t_col].min()
+                t_max = df[t_col].max()
+                summaries.append({
+                    "source": "ERA5", "station_id": sid,
+                    "status": "WARNING" if missing_pct > 10 else "OK",
+                    "total_rows": len(df),
+                    "missing_pct": missing_pct,
+                    "notes": f"{len(df):,} hourly timesteps (Temp: {t_min:.1f}–{t_max:.1f}°C)",
+                })
+            except Exception as exc:
+                summaries.append({
+                    "source": "ERA5", "station_id": sid, "status": "CRITICAL",
+                    "total_rows": 0, "missing_pct": 100, "notes": str(exc)[:80],
+                })
+        else:
+            summaries.append({
+                "source": "ERA5", "station_id": sid, "status": "MISSING",
+                "total_rows": 0, "missing_pct": 100,
+                "notes": f"File not found: era5_{sid}.parquet",
             })
     return summaries
 
@@ -258,15 +390,19 @@ def process_reservoir(config: dict) -> list:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="HydroGNN-Net Preprocessing")
-    parser.add_argument("--config", default="pipeline/config.yaml")
+    parser.add_argument("--config", default="Source_Code/pipeline/config.yaml")
     parser.add_argument("--skip-validation", action="store_true")
     args = parser.parse_args()
 
-    project_root = PIPELINE_DIR.parent
-    config_path  = Path(args.config)
+    config_path = Path(args.config)
     if not config_path.is_absolute():
-        config_path = project_root / config_path
-    config       = resolve_paths(load_config(config_path), project_root)
+        if (REPO_ROOT / config_path).exists():
+            config_path = REPO_ROOT / config_path
+        elif (PIPELINE_DIR / config_path.name).exists():
+            config_path = PIPELINE_DIR / config_path.name
+        else:
+            config_path = REPO_ROOT / config_path
+    config = resolve_paths(load_config(config_path), REPO_ROOT)
 
     logs_dir = Path(config["paths"]["logs_dir"])
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -275,41 +411,17 @@ def main() -> None:
 
     all_summaries = []
 
-    log_separator(logger, "Step 1: GPM IMERG Rolling Accumulations")
-    all_summaries.extend(process_gpm(config))
+    log_separator(logger, "Step 1: IMD Daily Gridded Rainfall (0.25° NetCDF)")
+    all_summaries.extend(process_imd_rainfall(config))
 
     log_separator(logger, "Step 2: CWC River Gauge Data")
     all_summaries.extend(process_cwc(config))
 
-    log_separator(logger, "Step 3: Reservoir Data")
+    log_separator(logger, "Step 3: Reservoir Telemetry Data")
     all_summaries.extend(process_reservoir(config))
 
-    log_separator(logger, "Step 4: ERA5 Reanalysis Preprocessing")
-    try:
-        from src.downloaders.era5 import ERA5Downloader
-        from src.utils.cache import CacheManager
-        from src.utils.logger import DownloadLogger
-        cache   = CacheManager(Path(config["paths"]["logs_dir"]) / "cache")
-        dl_log  = DownloadLogger(Path(config["paths"]["logs_dir"]) / "download_log.csv")
-        era5_dl = ERA5Downloader(cache, dl_log, config)
-        years   = list(range(config["years"]["start"], config["years"]["end"] + 1))
-        era5_summaries = era5_dl.preprocess_all_years(
-            years,
-            raw_dir=Path(config["paths"]["raw_dir"]) / "era5",
-            proc_dir=Path(config["paths"]["processed_dir"]),
-            station_ids=[s["id"] for s in config["stations"]],
-            station_coords=[(s["lat"], s["lon"]) for s in config["stations"]],
-        )
-        all_summaries.extend(era5_summaries)
-    except DataSourceUnavailable as e:
-        logger.warning(f"ERA5 not available (CDS credentials required): {e}")
-    except AttributeError:
-        logger.warning(
-            "ERA5 preprocess_all_years() not implemented — skipping ERA5 validation.\n"
-            "ERA5 data will be used as-is if parquet files exist in processed_dir."
-        )
-    except Exception as e:
-        logger.warning(f"ERA5 preprocessing step failed: {e}")
+    log_separator(logger, "Step 4: ERA5 Reanalysis Meteorological Data")
+    all_summaries.extend(process_era5(config))
 
     # ── Summary ───────────────────────────────────────────────────────────
     log_separator(logger, "Preprocessing Summary")

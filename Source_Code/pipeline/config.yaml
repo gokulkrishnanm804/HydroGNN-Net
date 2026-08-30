@@ -188,17 +188,17 @@ reservoirs:
     cwc_reservoir_id: "RES-PIL"
     river: "Bhavani"
 
-# ── File Paths (relative to pipeline/) ───────────────────────────────────────
+# ── File Paths (relative to repository root) ──────────────────────────────────
 paths:
-  raw_dir:          "dataset/raw"
-  processed_dir:    "dataset/processed"
-  graphs_dir:       "dataset/graphs"
-  features_dir:     "dataset/features"
-  splits_dir:       "dataset/splits"
-  models_dir:       "dataset/models"
-  logs_dir:         "dataset/logs"
-  metadata_dir:     "dataset/metadata"
-  checkpoints_dir:  "dataset/models/checkpoints"
+  raw_dir:          "HydroGNN_Datasets/raw"
+  processed_dir:    "HydroGNN_Datasets/processed"
+  graphs_dir:       "HydroGNN_Datasets/graph"
+  features_dir:     "HydroGNN_Datasets/processed"
+  splits_dir:       "HydroGNN_Datasets/pytorch"
+  models_dir:       "Models"
+  logs_dir:         "Reports"
+  metadata_dir:     "HydroGNN_Datasets/pytorch"
+  checkpoints_dir:  "Models/Checkpoints"
 
 # ── Credentials ───────────────────────────────────────────────────────────────
 # Leave blank here; set via environment variables in project root .env file
@@ -369,7 +369,7 @@ export:
 # Reference: Pai et al. (2014) IMD gridded daily rainfall over India.
 imd_rainfall:
   source: "IMD"
-  path: "dataset/raw/rainfall"
+  path: "HydroGNN_Datasets/raw/rainfall"
   file_pattern: "RF25_ind{year}_rfp25.nc"
   variable: "RAINFALL"
   units: "mm/day"
@@ -386,7 +386,7 @@ imd_rainfall:
 #       Removed from active reservoir list. Using available proxies.
 reservoir_operations:
   source: "TN_AgrISNET"
-  path: "dataset/raw/reservoir/reservoir_2018_2023.csv"
+  path: "HydroGNN_Datasets/raw/reservoir/reservoir_2018_2023.csv"
   date_col: "updated_date"
   date_filter_end: "2023-12-31"
   reservoirs:
