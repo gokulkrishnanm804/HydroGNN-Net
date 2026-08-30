@@ -14,3 +14,5 @@ venv/
 
 # Ignore extracted HydroRIVERS files
 Source_Code/pipeline/dataset/raw/hydrorivers/hydrorivers_raw/
+
+Reports/validation_report.html
