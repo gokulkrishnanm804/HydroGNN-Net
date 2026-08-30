@@ -284,9 +284,16 @@ class HydroGNNNet(nn.Module):
         # 3. Refinement: GraphSAGE
         self.sage_refinement = SAGERefinement(gat_out_dim, sage_hidden)
 
-        # 4. Prediction heads
-        self.forecast_head     = MultiHorizonHead(sage_hidden, horizons, dropout=dropout)
-        self.uncertainty_head  = UncertaintyHead(sage_hidden, horizons)
+        # 4. Explicit current-stage conditioning projection
+        self.stage_proj = nn.Sequential(
+            nn.Linear(1, 32),
+            nn.ELU(),
+        )
+
+        # 5. Prediction heads receive combined [sage_hidden + 32] representation
+        head_in_dim = sage_hidden + 32
+        self.forecast_head     = MultiHorizonHead(head_in_dim, horizons, dropout=dropout)
+        self.uncertainty_head  = UncertaintyHead(head_in_dim, horizons)
 
     # ------------------------------------------------------------------ #
     # Forward
@@ -297,6 +304,7 @@ class HydroGNNNet(nn.Module):
         x: Tensor,
         edge_index: Tensor,
         edge_attr: Tensor,
+        y_curr: Optional[Tensor] = None,
         return_attention: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """
@@ -305,12 +313,13 @@ class HydroGNNNet(nn.Module):
         x            : [N, T, F]  node feature sequences (normalized)
         edge_index   : [2, E]     COO edge connectivity
         edge_attr    : [E, 4]     edge features
+        y_curr       : [N]        current observed stage y(t)
         return_attention: Not yet used (reserved for GNN-XAI).
 
         Returns
         -------
         (pred, log_var)
-            pred    : [N, H]  predicted water level at each horizon
+            pred    : [N, H]  predicted delta water level at each horizon
             log_var : [N, H]  log-variance for uncertainty quantification
         """
         # 1. Temporal encoding: [N, T, F] → [N, hidden]
@@ -322,9 +331,19 @@ class HydroGNNNet(nn.Module):
         # 3. SAGE refinement: [N, gat_out] → [N, sage_hidden]
         h_r = self.sage_refinement(h_s, edge_index)
 
-        # 4. Prediction heads
-        pred    = self.forecast_head(h_r)      # [N, H]
-        log_var = self.uncertainty_head(h_r)   # [N, H]
+        # 4. Explicit current-stage conditioning
+        N = x.size(0)
+        if y_curr is None:
+            y_curr_feat = x.new_zeros((N, 1))
+        else:
+            y_curr_feat = y_curr.unsqueeze(-1) if y_curr.ndim == 1 else y_curr
+
+        h_stage = self.stage_proj(y_curr_feat)
+        h_cond = torch.cat([h_r, h_stage], dim=-1)
+
+        # 5. Prediction heads
+        pred    = self.forecast_head(h_cond)      # [N, H]
+        log_var = self.uncertainty_head(h_cond)   # [N, H]
 
         return pred, log_var
 
@@ -431,32 +450,47 @@ class HydroGNNLoss(nn.Module):
     """
     Composite loss function for HydroGNN-Net training.
 
-    L = w_mse   × MSE(pred, target)
-      + w_nse   × (1 − NSE(pred, target))
-      + w_phys  × continuity_violation
+    L = w_mse      × MSE(pred, target)
+      + w_mae      × SmoothL1(pred, target)
+      + w_nse      × (1 − NSE(pred, target))
+      + w_phys     × continuity_violation
+      + w_dreg     × delta_reg          [Experiment 4]
       [+ NLL term if log_var provided]
 
     Continuity violation:
         Penalises unphysical jumps > 5 m between consecutive horizon predictions.
         max(0, |pred[:, h+1] − pred[:, h]| − 5.0) for each h.
 
+    Delta regularization (Experiment 4):
+        At timesteps where |actual_delta| < 0.10 m the river stage is effectively
+        stationary, so any predicted delta is unnecessary movement. We penalise
+        that movement with MSE(pred_stationary, 0).  This directly addresses the
+        systematic positive-delta bias at low-variance stations (Kodumudi, Karur)
+        without altering the model architecture or dataset files.
+
     Parameters
     ----------
-    mse_weight    : Weight for MSE term (default 1.0).
-    nse_weight    : Weight for NSE term (default 0.3).
-    physics_weight: Weight for continuity violation term (default 0.1).
+    mse_weight      : Weight for MSE term (default 1.0).
+    mae_weight      : Weight for SmoothL1/MAE term (default 0.5).
+    nse_weight      : Weight for NSE term (default 0.3).
+    physics_weight  : Weight for continuity violation term (default 0.1).
+    delta_reg_weight: Weight for small-delta regularization (default 0.25).
     """
 
     def __init__(
         self,
-        mse_weight:     float = 1.0,
-        nse_weight:     float = 0.3,
-        physics_weight: float = 0.1,
+        mse_weight:      float = 1.0,
+        mae_weight:      float = 0.5,
+        nse_weight:      float = 0.3,
+        physics_weight:  float = 0.1,
+        delta_reg_weight: float = 0.25,
     ) -> None:
         super().__init__()
         self.w_mse   = mse_weight
+        self.w_mae   = mae_weight
         self.w_nse   = nse_weight
         self.w_phys  = physics_weight
+        self.w_dreg  = delta_reg_weight
 
     def forward(
         self,
@@ -490,14 +524,21 @@ class HydroGNNLoss(nn.Module):
         # 1. MSE loss
         loss_mse = nn.functional.mse_loss(p, t)
 
-        # 2. NSE-based loss: minimize (1 - NSE)
-        t_mean   = t.mean()
-        ss_tot   = ((t - t_mean) ** 2).sum().clamp(min=1e-6)
-        ss_res   = ((t - p) ** 2).sum()
-        nse      = 1.0 - ss_res / ss_tot
-        loss_nse = 1.0 - nse
+        # 2. Smooth L1 loss (MAE component for robust gradient on low-variance baseflow)
+        loss_mae = nn.functional.smooth_l1_loss(p, t)
 
-        # 3. Physical continuity violation across consecutive horizon steps [N, H]
+        # 3. NSE-based loss: minimize (1 - NSE) = MSE / Var(target)
+        # Compute NSE only when valid count > 1 and target variance is non-negligible
+        if len(t) > 1:
+            var_t = torch.var(t, unbiased=True)
+            if var_t > 1e-3:
+                loss_nse = loss_mse / (var_t + 1e-3)
+            else:
+                loss_nse = pred.new_zeros(1).squeeze()
+        else:
+            loss_nse = pred.new_zeros(1).squeeze()
+
+        # 4. Physical continuity violation across consecutive horizon steps [N, H]
         if pred.ndim >= 2 and pred.shape[-1] > 1:
             diffs     = pred[:, 1:] - pred[:, :-1]             # [N, H-1]
             violation = nn.functional.relu(diffs.abs() - 5.0)  # >5m jump
@@ -505,7 +546,7 @@ class HydroGNNLoss(nn.Module):
         else:
             loss_phys = pred.new_zeros(1).squeeze()
 
-        # 4. Negative Log-Likelihood (heteroscedastic)
+        # 5. Negative Log-Likelihood (heteroscedastic)
         if lv_val is not None:
             residual  = p - t
             loss_nll  = 0.5 * (lv_val + (residual ** 2) * torch.exp(-lv_val))
@@ -513,10 +554,24 @@ class HydroGNNLoss(nn.Module):
         else:
             loss_nll = pred.new_zeros(1).squeeze()
 
+        # 6. Small-delta regularization (Experiment 4)
+        # Penalise predicted deltas at timesteps where the actual change is tiny.
+        # `target` is delta_y = y(t+h) - y(t).  Where |target| < 0.10 m the
+        # river stage is essentially stationary; any model-predicted delta is
+        # spurious movement that harms MAE at low-variance stations.
+        stationary = valid & (target.abs() < 0.10)
+        if stationary.any():
+            p_stat = pred[stationary]
+            loss_dreg = (p_stat ** 2).mean()   # MSE toward zero-delta
+        else:
+            loss_dreg = pred.new_zeros(1).squeeze()
+
         total = (
             self.w_mse  * loss_mse
+            + self.w_mae  * loss_mae
             + self.w_nse  * loss_nse
             + self.w_phys * loss_phys
             + loss_nll
+            + self.w_dreg * loss_dreg
         )
         return total

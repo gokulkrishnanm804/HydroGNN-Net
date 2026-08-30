@@ -33,9 +33,9 @@ years:
   end: 2023
 
 temporal:
-  resolution_minutes: 30       # Native GPM IMERG resolution
-  lookback_steps: 48           # 48 steps × 30 min = 24 h lookback
-  forecast_horizons_hours: [1, 3, 6, 12, 18, 24]
+  resolution_minutes: 60       # 1-Hour uniform grid
+  lookback_steps: 24           # 24 steps × 1 h = 24 h lookback
+  forecast_horizons_hours: [6, 12, 24]
   step_size: 1                 # Sliding window step (1 = dense windows)
 
 # ── River Monitoring Stations ─────────────────────────────────────────────────
@@ -283,47 +283,39 @@ features:
   rolling_windows_hours: [1, 3, 6, 12, 24]
   ari_decay: 0.9               # Antecedent Rainfall Index decay
   upstream_tau_hours: 12       # Upstream contribution e-folding time
-  normalization: "robust"      # robust | standard | minmax
-  # Final 13-element feature vector per node per timestep:
+  normalization: "standard"    # StandardScaler (fitted on train split only)
+  # Final 7-element feature vector per node per timestep:
   feature_names:
-    # NOTE: rainfall_*h features are now derived from IMD Daily Rainfall (not GPM)
-    - rainfall_1h
-    - rainfall_3h
-    - rainfall_6h
-    - rainfall_12h
-    - rainfall_24h
-    - antecedent_rainfall_index
     - temperature_c
-    - soil_moisture
+    - humidity_pct
     - wind_speed_ms
-    - reservoir_release_norm
-    - reservoir_storage_norm
-    - upstream_contribution
-    - water_level_m
+    - pressure_pa
+    - evaporation_mm
+    - soil_moisture
+    - elevation_m
 
 # ── Graph Construction ────────────────────────────────────────────────────────
 graph:
   default_velocity_kmh: 3.0   # River flow velocity for travel time estimation
-  n_edge_features: 4
-  n_node_features: 13
+  n_edge_features: 3
+  n_node_features: 7
   edge_features:
-    - length_km
-    - elev_diff_m
-    - travel_time_h
-    - strahler_order
+    - distance_km
+    - slope
+    - river_order
 
 # ── Model Architecture ────────────────────────────────────────────────────────
 # HydroGNN-Net: GRU → GATv2 → GraphSAGE → Multi-Horizon Head
 model:
-  node_features: 13
+  node_features: 7
   hidden_dim: 128
   gru_layers: 2
   gat_heads: 4
   gat_layers: 2
   sage_hidden: 128
-  edge_dim: 4
+  edge_dim: 3
   dropout: 0.2
-  horizons: [1, 3, 6, 12, 18, 24]
+  horizons: [6, 12, 24]
 
 # ── Training ──────────────────────────────────────────────────────────────────
 training:
@@ -336,8 +328,10 @@ training:
   scheduler: cosine
   scheduler_T_max: 100
   mse_weight: 1.0
+  mae_weight: 0.5
   nse_weight: 0.3
   physics_weight: 0.1
+  delta_reg_weight: 0.25        # Exp 4: penalise non-zero delta where |actual_delta| < 0.10 m
   grad_clip: 1.0
   seed: 42
   device: auto                 # auto | cuda | cpu

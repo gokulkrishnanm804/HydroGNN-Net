@@ -35,6 +35,7 @@ import time
 from pathlib import Path
 
 PIPELINE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = PIPELINE_DIR.parent.parent
 if str(PIPELINE_DIR) not in sys.path:
     sys.path.insert(0, str(PIPELINE_DIR))
 
@@ -73,11 +74,13 @@ def train_epoch(
         batch = batch.to(device)
         optimizer.zero_grad()
 
-        pred, log_var = model(batch.x, batch.edge_index, batch.edge_attr)
+        y_curr = getattr(batch, "y_curr", None)
+        pred_delta, log_var = model(batch.x, batch.edge_index, batch.edge_attr, y_curr=y_curr)
 
-        # Mask: only compute loss where we have observed targets
-        mask = batch.mask if hasattr(batch, "mask") else None
-        loss = criterion(pred, batch.y, log_var=log_var, mask=mask)
+        # Delta target & mask: train on delta_y = y(t+h) - y(t)
+        target = batch.delta_y if hasattr(batch, "delta_y") else batch.y
+        mask = batch.delta_mask if hasattr(batch, "delta_mask") else getattr(batch, "mask", None)
+        loss = criterion(pred_delta, target, log_var=log_var, mask=mask)
 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
@@ -100,41 +103,75 @@ def evaluate(
 ) -> dict:
     """Evaluate model on a DataLoader. Returns metric dict."""
     model.eval()
-    all_pred, all_true = [], []
+    all_pred, all_true, all_mask = [], [], []
     total_loss = 0.0
     n_batches  = 0
 
     for batch in loader:
         batch = batch.to(device)
-        pred, log_var = model(batch.x, batch.edge_index, batch.edge_attr)
-        mask = batch.mask if hasattr(batch, "mask") else None
-        loss = criterion(pred, batch.y, log_var=log_var, mask=mask)
+        y_curr = getattr(batch, "y_curr", None)
+        pred_delta, log_var = model(batch.x, batch.edge_index, batch.edge_attr, y_curr=y_curr)
+
+        target = batch.delta_y if hasattr(batch, "delta_y") else batch.y
+        mask = batch.delta_mask if hasattr(batch, "delta_mask") else getattr(batch, "mask", None)
+        loss = criterion(pred_delta, target, log_var=log_var, mask=mask)
         total_loss += loss.item()
         n_batches  += 1
 
-        # Collect 1h horizon predictions for NSE computation
-        all_pred.append(pred[:, 0].cpu().numpy())   # 1-hour horizon
-        all_true.append(batch.y[:, 0].cpu().numpy())
+        # Reconstruct physical future stage: y_pred = y_curr + pred_delta
+        if y_curr is not None:
+            y_curr_exp = y_curr.unsqueeze(-1) if y_curr.ndim == 1 else y_curr
+            pred_stage = y_curr_exp + pred_delta
+        else:
+            pred_stage = pred_delta
 
-    pred_arr = np.concatenate(all_pred)
-    true_arr = np.concatenate(all_true)
+        # Collect all horizons [N, 3]
+        p = pred_stage.cpu().numpy()
+        t = batch.y.cpu().numpy()
+        if mask is not None:
+            if mask.ndim == 1:
+                m = np.repeat(mask.cpu().numpy().astype(bool)[:, None], 3, axis=1)
+            else:
+                m = mask.cpu().numpy().astype(bool)
+        else:
+            m = np.ones_like(t, dtype=bool)
+
+        all_pred.append(p)
+        all_true.append(t)
+        all_mask.append(m)
+
+    pred_arr = np.concatenate(all_pred, axis=0) # [Total_nodes, 3]
+    true_arr = np.concatenate(all_true, axis=0) # [Total_nodes, 3]
+    mask_arr = np.concatenate(all_mask, axis=0) # [Total_nodes, 3]
 
     # Inverse-normalise if scaler available
     if normalizer is not None:
         pred_arr = normalizer.inverse_transform_column(target_col, pred_arr)
         true_arr = normalizer.inverse_transform_column(target_col, true_arr)
 
-    # Filter NaN
-    valid = np.isfinite(pred_arr) & np.isfinite(true_arr)
-    p, t  = pred_arr[valid], true_arr[valid]
+    # Filter NaN and apply effective mask
+    valid = np.isfinite(pred_arr) & np.isfinite(true_arr) & mask_arr
+    p_flat, t_flat = pred_arr[valid], true_arr[valid]
+
+    # Per-horizon NSEs
+    h_nses = []
+    for h_i in range(min(3, pred_arr.shape[1])):
+        v_h = valid[:, h_i]
+        if v_h.sum() > 1:
+            h_nses.append(float(nash_sutcliffe(true_arr[v_h, h_i], pred_arr[v_h, h_i])))
+        else:
+            h_nses.append(float("nan"))
 
     return {
-        "loss":  total_loss / max(n_batches, 1),
-        "NSE":   nash_sutcliffe(t, p),
-        "KGE":   kling_gupta(t, p),
-        "RMSE":  rmse(t, p),
-        "MAE":   mae(t, p),
-        "PBIAS": pbias(t, p),
+        "loss":     total_loss / max(n_batches, 1),
+        "NSE":      nash_sutcliffe(t_flat, p_flat) if len(t_flat) > 1 else float("nan"),
+        "KGE":      kling_gupta(t_flat, p_flat) if len(t_flat) > 1 else float("nan"),
+        "RMSE":     rmse(t_flat, p_flat) if len(t_flat) > 0 else float("nan"),
+        "MAE":      mae(t_flat, p_flat) if len(t_flat) > 0 else float("nan"),
+        "PBIAS":    pbias(t_flat, p_flat) if len(t_flat) > 0 else float("nan"),
+        "NSE_H6":   h_nses[0] if len(h_nses) > 0 else float("nan"),
+        "NSE_H12":  h_nses[1] if len(h_nses) > 1 else float("nan"),
+        "NSE_H24":  h_nses[2] if len(h_nses) > 2 else float("nan"),
     }
 
 
@@ -182,7 +219,7 @@ def load_checkpoint(path: Path, model: HydroGNNNet, optimizer, scheduler) -> int
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="HydroGNN-Net Training")
-    parser.add_argument("--config",     default="pipeline/config.yaml")
+    parser.add_argument("--config",     default="Source_Code/pipeline/config.yaml")
     parser.add_argument("--epochs",     type=int,   default=None)
     parser.add_argument("--batch-size", type=int,   default=None)
     parser.add_argument("--lr",         type=float, default=None)
@@ -191,16 +228,22 @@ def main() -> None:
                         help="Resume training from last checkpoint")
     args = parser.parse_args()
 
-    project_root = PIPELINE_DIR.parent
-    config_path  = project_root / args.config
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        if (REPO_ROOT / config_path).exists():
+            config_path = REPO_ROOT / config_path
+        elif (PIPELINE_DIR / config_path.name).exists():
+            config_path = PIPELINE_DIR / config_path.name
+        else:
+            config_path = REPO_ROOT / config_path
     with open(config_path) as fh:
         config = yaml.safe_load(fh)
 
-    # Resolve paths
-    for key in config["paths"]:
+    # Resolve paths against REPO_ROOT
+    for key in config.get("paths", {}):
         p = Path(config["paths"][key])
         if not p.is_absolute():
-            config["paths"][key] = str(project_root / "pipeline" / p)
+            config["paths"][key] = str(REPO_ROOT / p)
 
     # CLI overrides
     train_cfg = config["training"]
@@ -234,12 +277,11 @@ def main() -> None:
 
     # ── Dataset ───────────────────────────────────────────────────────────
     splits_dir = Path(config["paths"]["splits_dir"])
-    root_dir   = splits_dir.parent
 
     log_separator(logger, "Loading Datasets")
     try:
-        train_ds = HydroGNNDataset(str(root_dir), split="train")
-        val_ds   = HydroGNNDataset(str(root_dir), split="val")
+        train_ds = HydroGNNDataset(str(splits_dir), split="train")
+        val_ds   = HydroGNNDataset(str(splits_dir), split="val")
     except FileNotFoundError as e:
         logger.error(str(e))
         sys.exit(1)
@@ -255,10 +297,24 @@ def main() -> None:
         num_workers=0, pin_memory=(device.type == "cuda"),
     )
 
-    logger.info(f"Train: {len(train_ds)} samples | Val: {len(val_ds)} samples")
-
     # ── Model ─────────────────────────────────────────────────────────────
     log_separator(logger, "Building HydroGNN-Net")
+    if len(train_ds) > 0:
+        s0 = train_ds[0]
+        ds_n_feat = int(s0.x.shape[-1])
+        ds_e_dim  = int(s0.edge_attr.shape[-1])
+        cfg_n_feat = int(config["model"]["node_features"])
+        cfg_e_dim  = int(config["model"]["edge_dim"])
+        if ds_n_feat != cfg_n_feat:
+            raise ValueError(
+                f"Dataset node feature dimension ({ds_n_feat}) does not match "
+                f"config.yaml model.node_features ({cfg_n_feat})."
+            )
+        if ds_e_dim != cfg_e_dim:
+            raise ValueError(
+                f"Dataset edge attribute dimension ({ds_e_dim}) does not match "
+                f"config.yaml model.edge_dim ({cfg_e_dim})."
+            )
     model = HydroGNNNet.from_config(config["model"]).to(device)
     logger.info(f"Parameters: {model.count_parameters():,}")
 
@@ -277,8 +333,10 @@ def main() -> None:
     # ── Loss ──────────────────────────────────────────────────────────────
     criterion = HydroGNNLoss(
         mse_weight=float(train_cfg.get("mse_weight", 1.0)),
+        mae_weight=float(train_cfg.get("mae_weight", 0.5)),
         nse_weight=float(train_cfg.get("nse_weight", 0.3)),
         physics_weight=float(train_cfg.get("physics_weight", 0.1)),
+        delta_reg_weight=float(train_cfg.get("delta_reg_weight", 0.25)),
     )
 
     # ── Resume ────────────────────────────────────────────────────────────
@@ -290,7 +348,7 @@ def main() -> None:
     best_ckpt     = models_dir / "best_model.pt"
 
     start_epoch  = 0
-    best_val_nse = float("-inf")
+    best_val_mae = float("inf")   # Exp 5: optimise toward lower MAE (persistence = 0.170 m)
     patience_ctr = 0
 
     if args.resume and last_ckpt.exists():
@@ -301,7 +359,8 @@ def main() -> None:
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_path  = logs_dir / "training_log.csv"
     LOG_COLS  = ["epoch", "train_loss", "val_loss", "val_NSE", "val_KGE",
-                 "val_RMSE", "val_MAE", "val_PBIAS", "lr", "duration_s"]
+                 "val_RMSE", "val_MAE", "val_PBIAS", "lr", "duration_s",
+                 "ckpt_saved"]   # 1 = new best_model.pt saved this epoch
     if not log_path.exists():
         with open(log_path, "w", newline="") as fh:
             csv.DictWriter(fh, fieldnames=LOG_COLS).writeheader()
@@ -325,18 +384,43 @@ def main() -> None:
         elapsed = time.monotonic() - t_start
         cur_lr  = optimizer.param_groups[0]["lr"]
         val_nse = val_metrics["NSE"]
+        val_mae = val_metrics["MAE"]   # primary criterion (Exp 5)
+        ckpt_saved = 0
 
         # Logging
         logger.info(
             f"Epoch {epoch:03d}/{n_epochs} | "
             f"Train: {train_loss:.4f} | "
             f"Val: {val_metrics['loss']:.4f} | "
-            f"NSE: {val_nse:.4f} | "
-            f"KGE: {val_metrics['KGE']:.4f} | "
+            f"NSE: {val_nse:.4f} (H+6:{val_metrics['NSE_H6']:.4f}, H+12:{val_metrics['NSE_H12']:.4f}, H+24:{val_metrics['NSE_H24']:.4f}) | "
             f"RMSE: {val_metrics['RMSE']:.3f}m | "
+            f"MAE: {val_mae:.4f}m | "
+            f"KGE: {val_metrics['KGE']:.4f} | "
+            f"PBIAS: {val_metrics['PBIAS']:.2f}% | "
             f"LR: {cur_lr:.2e} | "
             f"{elapsed:.1f}s"
         )
+
+        # ── Early stopping (MAE-based) ─────────────────────────────────────
+        if np.isfinite(val_mae) and val_mae < best_val_mae - min_delta:
+            best_val_mae = val_mae
+            patience_ctr = 0
+            save_checkpoint(model, optimizer, scheduler, epoch, val_metrics,
+                            config["model"], best_ckpt)
+            ckpt_saved = 1
+            logger.info(
+                f"  -> New best MAE: {best_val_mae:.4f} m  "
+                f"(persistence gap: {best_val_mae - 0.170:.4f} m)  "
+                f"(saved to {best_ckpt.name})"
+            )
+        else:
+            patience_ctr += 1
+            if patience_ctr >= patience:
+                logger.info(
+                    f"Early stopping triggered at epoch {epoch}. "
+                    f"Best val MAE = {best_val_mae:.4f} m"
+                )
+                break
 
         row = {
             "epoch":      epoch,
@@ -345,15 +429,16 @@ def main() -> None:
             "val_NSE":    round(val_nse, 6) if np.isfinite(val_nse) else "",
             "val_KGE":    round(val_metrics["KGE"], 6),
             "val_RMSE":   round(val_metrics["RMSE"], 4),
-            "val_MAE":    round(val_metrics["MAE"], 4),
+            "val_MAE":    round(val_mae, 4),
             "val_PBIAS":  round(val_metrics["PBIAS"], 4),
             "lr":         cur_lr,
             "duration_s": round(elapsed, 2),
+            "ckpt_saved": ckpt_saved,
         }
         with open(log_path, "a", newline="") as fh:
             csv.DictWriter(fh, fieldnames=LOG_COLS).writerow(row)
 
-        # ── Save checkpoints ─────────────────────────────────────────────
+        # ── Save last checkpoint (always) ────────────────────────────────
         save_checkpoint(model, optimizer, scheduler, epoch, val_metrics,
                         config["model"], last_ckpt)
 
@@ -363,25 +448,10 @@ def main() -> None:
             save_checkpoint(model, optimizer, scheduler, epoch, val_metrics,
                             config["model"], ep_ckpt)
 
-        # ── Early stopping ────────────────────────────────────────────────
-        if np.isfinite(val_nse) and val_nse > best_val_nse + min_delta:
-            best_val_nse = val_nse
-            patience_ctr = 0
-            save_checkpoint(model, optimizer, scheduler, epoch, val_metrics,
-                            config["model"], best_ckpt)
-            logger.info(f"  → New best NSE: {best_val_nse:.4f}  (saved to {best_ckpt.name})")
-        else:
-            patience_ctr += 1
-            if patience_ctr >= patience:
-                logger.info(
-                    f"Early stopping triggered at epoch {epoch}. "
-                    f"Best val NSE = {best_val_nse:.4f}"
-                )
-                break
-
     # ── Final report ──────────────────────────────────────────────────────
     log_separator(logger, "Training Complete")
-    logger.info(f"Best validation NSE : {best_val_nse:.4f}")
+    logger.info(f"Best validation MAE : {best_val_mae:.4f} m  "
+                f"(persistence gap: {best_val_mae - 0.170:+.4f} m)")
     logger.info(f"Best model saved    : {best_ckpt}")
     logger.info(f"Training log        : {log_path}")
     logger.info("")

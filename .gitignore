@@ -16,3 +16,10 @@ venv/
 Source_Code/pipeline/dataset/raw/hydrorivers/hydrorivers_raw/
 
 Reports/validation_report.html
+Reports/*.csv
+Reports/*.png
+Reports/*.json
+Reports/*.parquet
+Reports/*.html
+Models/*.pt
+Models/Checkpoints/*.pt

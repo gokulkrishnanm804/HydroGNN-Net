@@ -218,3 +218,14 @@ def per_horizon_metrics(
         p = pred[:, i] if pred.ndim == 2 else pred
         results[h] = all_metrics(o, p, threshold)
     return results
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Compatibility aliases
+# ─────────────────────────────────────────────────────────────────────────────
+
+nash_sutcliffe_efficiency = nash_sutcliffe
+kling_gupta_efficiency = kling_gupta
+root_mean_square_error = rmse
+mean_absolute_error = mae
+percent_bias = pbias
